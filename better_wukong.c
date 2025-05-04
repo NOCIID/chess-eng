@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <limits.h>
 
 // FEN dedug positions
 char start_position[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -63,7 +64,7 @@ char ascii_pieces[] = ".PNBRQKpnbrqk";
 // unicode pieces
 char *unicode_pieces[] = {".", "♙", "♘", "♗", "♖", "♕", "♔", "♟︎", "♞", "♝", "♜", "♛", "♚"};
 
-int board_value;
+
 // encode ascii pieces
 int char_pieces[] = {
     ['P'] = P,
@@ -188,12 +189,6 @@ int king_square[2] = {e1, e8};
 
 // decode move's castling flag
 #define get_move_castling(move) ((move >> 21) & 0x1)
-
-// decode the white side total piece values
-#define get_white_pieces_values() ((board_value >> 16) & 0xffff)
-
-// decode the black side total piece values
-#define get_black_pieces_values() (board_value & 0xffff)
 
 
 // convert board square indexes to coordinates
@@ -1206,7 +1201,9 @@ void print_values(){
     printf("\nTotal black piece values : %d\n\n", b_piece_values);
 }
 
-void compute_board_value(){
+
+
+int compute_board_value(){
     int w_piece_values = 0;
     int b_piece_values = 0;
 
@@ -1225,29 +1222,76 @@ void compute_board_value(){
             }
         }
     }
-    // setting the white pieces values to the board_value integer
-    int temp_var = w_piece_values;
-    temp_var = temp_var << 16;
-    // setting the white pieces values to the board_value integer
-    temp_var |= b_piece_values;
-    board_value = temp_var;
+    return w_piece_values - b_piece_values;
+}
+
+
+int minimax(int depth, int side){
+    if (depth == 0){
+        int value = compute_board_value();
+
+        if (value) printf("\n  value : %d\n", value);
+        //print_board();
+        return value;
+    }
+    
+    moves move_list[1];
+    generate_moves(move_list);
+
+    int best_eval = (side == white) ? INT_MIN : INT_MAX;
+    
+    // loop over candidate moves
+    for (int move_count = 0; move_count < move_list->count; move_count++){
+        int move = move_list->moves[move_count];
+        
+        // save current state
+        int board_copy[128], king_square_copy[2];
+        int side_copy, enpassant_copy, castle_copy;
+        memcpy(board_copy, board, 512);
+        memcpy(king_square_copy, king_square, 8);
+        side_copy = side;
+        enpassant_copy = enpassant;
+        castle_copy = castle;
+
+        // apply move; if illegal, skip
+        if (!make_move(move, all_moves))
+            continue;
+        
+        // recursive search on the new position (side switched in make_move)
+        int eval = minimax(depth - 1, side ^ 1);
+
+        // update best eval depending on who is moving
+        if (side == white)
+            best_eval = (eval > best_eval) ? eval : best_eval;
+        else
+            best_eval = (eval < best_eval) ? eval : best_eval;
+        
+        // undo move: restore board state
+        memcpy(board, board_copy, 512);
+        memcpy(king_square, king_square_copy, 8);
+        side = side_copy;
+        enpassant = enpassant_copy;
+        castle = castle_copy;
+    }
+    
+    return best_eval;
 }
 
 // main driver
 int main()
 {
     // parse FEN string
-    parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    parse_fen("3k4/8/8/5r2/4R3/8/8/3K4 b - - 0 1");
     print_board();
     print_values();
 
 
     
     // run perft driver
-    perft_test(1);
-    compute_board_value();
+    perft_test(2);
 
-    printf("\n\n%d\n\n", get_black_pieces_values());
+    printf("minimax algorithm gives value : %d \n", side);
+
     
     return 0;
 }
