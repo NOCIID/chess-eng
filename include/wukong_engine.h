@@ -10,6 +10,10 @@
 // Pieces
 enum pieces { e, P, N, B, R, Q, K, p, n, b, r, q, k, o };
 
+
+// decode promoted pieces
+extern int promoted_pieces[];
+
 // Sides
 enum sides { white, black };
 
@@ -31,6 +35,11 @@ enum squares {
     a1 = 112, b1, c1, d1, e1, f1, g1, h1, no_sq
 };
 
+// convert board square indexes to coordinates
+extern char *square_to_coords[];
+
+
+
 // --- Type Definitions ---
 
 // Move list structure
@@ -38,6 +47,41 @@ typedef struct {
     int moves[256];
     int count;
 } moves;
+
+
+// --- Macros ---
+// encode move
+#define encode_move(source, target, piece, capture, pawn, enpassant, castling) \
+(                          \
+    (source) |             \
+    (target << 7) |        \
+    (piece << 14) |        \
+    (capture << 18) |      \
+    (pawn << 19) |         \
+    (enpassant << 20) |    \
+    (castling << 21)       \
+)
+
+// decode move's source square
+#define get_move_source(move) (move & 0x7f)
+
+// decode move's target square
+#define get_move_target(move) ((move >> 7) & 0x7f)
+
+// decode move's promoted piece
+#define get_move_piece(move) ((move >> 14) & 0xf)
+
+// decode move's capture flag
+#define get_move_capture(move) ((move >> 18) & 0x1)
+
+// decode move's double pawn push flag
+#define get_move_pawn(move) ((move >> 19) & 0x1)
+
+// decode move's enpassant flag
+#define get_move_enpassant(move) ((move >> 20) & 0x1)
+
+// decode move's castling flag
+#define get_move_castling(move) ((move >> 21) & 0x1)
 
 // --- Function Prototypes ---
 

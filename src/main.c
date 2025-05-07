@@ -1,4 +1,5 @@
-#include "wukong_engine.h"
+#include "../include/wukong_engine.h"
+#include "../include/move_search.h"
 
 // main driver
 int main()

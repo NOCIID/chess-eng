@@ -12,33 +12,14 @@
 // headers
 #include <stdio.h>
 #include <string.h>
-#include <sys/time.h>
 #include <limits.h>
-#include "stack.h"
+#include "../include/stack.h"
+#include "../include/wukong_engine.h"
 
 // FEN dedug positions
 char start_position[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 char tricky_position[] = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
-// piece encoding
-enum pieces {e, P, N, B, R, Q, K, p, n, b, r, q, k, o};
-
-int pieces_values[] = {0, 1, 3, 3, 5, 9, 100, 1, 3, 3, 5, 9, 100, 0};
-
-// square encoding
-enum squares {
-    a8 = 0,   b8, c8, d8, e8, f8, g8, h8,
-    a7 = 16,  b7, c7, d7, e7, f7, g7, h7,
-    a6 = 32,  b6, c6, d6, e6, f6, g6, h6,
-    a5 = 48,  b5, c5, d5, e5, f5, g5, h5,
-    a4 = 64,  b4, c4, d4, e4, f4, g4, h4,
-    a3 = 80,  b3, c3, d3, e3, f3, g3, h3,
-    a2 = 96,  b2, c2, d2, e2, f2, g2, h2,
-    a1 = 112, b1, c1, d1, e1, f1, g1, h1, no_sq
-};
-
-// capture flags
-enum capture_flags {all_moves, only_captures};
 
 // castling binary representation
 //
@@ -53,11 +34,28 @@ enum capture_flags {all_moves, only_captures};
 // 1001       black king => queen side
 //            white king => king side
 
-// castling writes
-enum castling { KC = 1, QC = 2, kc = 4, qc = 8 };
 
-// sides to move
-enum sides { white, black };
+char *square_to_coords[] = {
+    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", "i8", "j8", "k8", "l8", "m8", "n8", "o8", "p8",
+    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7", "i7", "j7", "k7", "l7", "m7", "n7", "o7", "p7",
+    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6", "i6", "j6", "k6", "l6", "m6", "n6", "o6", "p6",
+    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5", "i5", "j5", "k5", "l5", "m5", "n5", "o5", "p5",
+    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4", "i4", "j4", "k4", "l4", "m4", "n4", "o4", "p4",
+    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3", "i3", "j3", "k3", "l3", "m3", "n3", "o3", "p3",
+    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2", "i2", "j2", "k2", "l2", "m2", "n2", "o2", "p2",
+    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1", "i1", "j1", "k1", "l1", "m1", "n1", "o1", "p1"
+};
+
+int promoted_pieces[] = {
+    [Q] = 'q',
+    [R] = 'r',
+    [B] = 'b',
+    [N] = 'n',
+    [q] = 'q',
+    [r] = 'r',
+    [b] = 'b',
+    [n] = 'n',
+};
 
 // ascii pieces
 char ascii_pieces[] = ".PNBRQKpnbrqk";
@@ -82,17 +80,6 @@ int char_pieces[] = {
     ['k'] = k,
 };
 
-// decode promoted pieces
-int promoted_pieces[] = {
-    [Q] = 'q',
-    [R] = 'r',
-    [B] = 'b',
-    [N] = 'n',
-    [q] = 'q',
-    [r] = 'r',
-    [b] = 'b',
-    [n] = 'n',
-};
 
 // castling rights
 
@@ -158,69 +145,14 @@ int king_square[2] = {e1, e8};
 
 */
 
-// encode move
-#define encode_move(source, target, piece, capture, pawn, enpassant, castling) \
-(                          \
-    (source) |             \
-    (target << 7) |        \
-    (piece << 14) |        \
-    (capture << 18) |      \
-    (pawn << 19) |         \
-    (enpassant << 20) |    \
-    (castling << 21)       \
-)
-
-// decode move's source square
-#define get_move_source(move) (move & 0x7f)
-
-// decode move's target square
-#define get_move_target(move) ((move >> 7) & 0x7f)
-
-// decode move's promoted piece
-#define get_move_piece(move) ((move >> 14) & 0xf)
-
-// decode move's capture flag
-#define get_move_capture(move) ((move >> 18) & 0x1)
-
-// decode move's double pawn push flag
-#define get_move_pawn(move) ((move >> 19) & 0x1)
-
-// decode move's enpassant flag
-#define get_move_enpassant(move) ((move >> 20) & 0x1)
-
-// decode move's castling flag
-#define get_move_castling(move) ((move >> 21) & 0x1)
 
 
-// convert board square indexes to coordinates
-char *square_to_coords[] = {
-    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", "i8", "j8", "k8", "l8", "m8", "n8", "o8", "p8",
-    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7", "i7", "j7", "k7", "l7", "m7", "n7", "o7", "p7",
-    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6", "i6", "j6", "k6", "l6", "m6", "n6", "o6", "p6",
-    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5", "i5", "j5", "k5", "l5", "m5", "n5", "o5", "p5",
-    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4", "i4", "j4", "k4", "l4", "m4", "n4", "o4", "p4",
-    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3", "i3", "j3", "k3", "l3", "m3", "n3", "o3", "p3",
-    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2", "i2", "j2", "k2", "l2", "m2", "n2", "o2", "p2",
-    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1", "i1", "j1", "k1", "l1", "m1", "n1", "o1", "p1"
-};
 
 // piece move offsets
 int knight_offsets[8] = {33, 31, 18, 14, -33, -31, -18, -14};
 int bishop_offsets[4] = {15, 17, -15, -17};
 int rook_offsets[4] = {16, -16, 1, -1};
 int king_offsets[8] = {16, -16, 1, -1, 15, 17, -15, -17};
-
-// move list structure
-typedef struct {
-    // move list
-    int moves[256];
-    
-    // move count
-    int count;
-} moves;
-
-Stack *move_stack;
-
 
 // print board
 void print_board()
@@ -1058,255 +990,3 @@ int make_move(int move, int capture_flag)
     return 0;
 }
 
-// count nodes
-long nodes = 0;
-
-// get time in milliseconds
-int get_time_ms()
-{
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	return t.tv_sec * 1000 + t.tv_usec / 1000;
-}
-
-// perft driver
-void perft_driver(int depth)
-{
-    // escape condition
-    if  (!depth)
-    {
-        // count current position
-        nodes++;
-        return;
-    }
-
-    // create move list variable
-    moves move_list[1];
-    
-    // generate moves
-    generate_moves(move_list);
-    
-    // loop over the generated moves
-    for (int move_count = 0; move_count < move_list->count; move_count++)
-    {
-        // define board state variable copies
-        int board_copy[128], king_square_copy[2];
-        int side_copy, enpassant_copy, castle_copy;
-        
-        // copy board state
-        memcpy(board_copy, board, 512);
-        side_copy = side;
-        enpassant_copy = enpassant;
-        castle_copy = castle;
-        memcpy(king_square_copy, king_square,8);
-        
-        // make only legal moves
-        if (!make_move(move_list->moves[move_count], all_moves))
-            // skip illegal move
-            continue;
-        
-        // recursive call
-        perft_driver(depth - 1);
-        
-        // restore board position
-        memcpy(board, board_copy, 512);
-        side = side_copy;
-        enpassant = enpassant_copy;
-        castle = castle_copy;
-        memcpy(king_square, king_square_copy,8);
-    }
-}
-
-// perft test
-void perft_test(int depth)
-{
-    printf("\n    Performance test:\n\n");
-    
-    // init start time
-    int start_time = get_time_ms();
-
-    // create move list variable
-    moves move_list[1];
-    
-    // generate moves
-    generate_moves(move_list);
-    
-    // loop over the generated moves
-    for (int move_count = 0; move_count < move_list->count; move_count++)
-    {
-        // define board state variable copies
-        int board_copy[128], king_square_copy[2];
-        int side_copy, enpassant_copy, castle_copy;
-        
-        // copy board state
-        memcpy(board_copy, board, 512);
-        side_copy = side;
-        enpassant_copy = enpassant;
-        castle_copy = castle;
-        memcpy(king_square_copy, king_square,8);
-        
-        // make only legal moves
-        if (!make_move(move_list->moves[move_count], all_moves))
-            // skip illegal move
-            continue;
-        
-        // cummulative nodes
-        long cum_nodes = nodes;
-        
-        // recursive call
-        perft_driver(depth - 1);
-        
-        // old nodes
-        long old_nodes = nodes - cum_nodes;
-        
-        // restore board position
-        memcpy(board, board_copy, 512);
-        side = side_copy;
-        enpassant = enpassant_copy;
-        castle = castle_copy;
-        memcpy(king_square, king_square_copy,8);
-        
-        // print current move
-        printf("    move %d: %s%s%c    %ld\n",
-            move_count + 1,
-            square_to_coords[get_move_source(move_list->moves[move_count])],
-            square_to_coords[get_move_target(move_list->moves[move_count])],
-            promoted_pieces[get_move_piece(move_list->moves[move_count])],
-            old_nodes
-        );
-    }
-    
-    // print results
-    printf("\n    Depth: %d", depth);
-    printf("\n    Nodes: %ld", nodes);
-    printf("\n     Time: %d ms\n\n", get_time_ms() - start_time);
-}
-
-// print the total pieces values for each sides
-void print_values(){
-    int w_piece_values = 0;
-    int b_piece_values = 0;
-
-    for (int square = 0; square < 120; square++){
-        // if board is not empty
-        if (!(square & 0x88)){
-            if (board[square]){
-                // if we have a white piece 
-                if ((board[square] >= 1) && (board[square] <= 6)){
-                    w_piece_values += pieces_values[board[square]];
-                }
-                // if we have a black piece
-                else if ((board[square] >= 7) && (board[square] <= 12)){
-                    b_piece_values += pieces_values[board[square]];
-                }
-            }
-        }
-    }
-    printf("\nTotal white piece values : %d", w_piece_values);
-    printf("\nTotal black piece values : %d\n\n", b_piece_values);
-}
-
-
-
-int compute_board_value(){
-    int w_piece_values = 0;
-    int b_piece_values = 0;
-
-    for (int square = 0; square < 120; square++){
-        // if board is not empty
-        if (!(square & 0x88)){
-            if (board[square]){
-                // if we have a white piece 
-                if ((board[square] >= 1) && (board[square] <= 6)){
-                    w_piece_values += pieces_values[board[square]];
-                }
-                // if we have a black piece
-                else if ((board[square] >= 7) && (board[square] <= 12)){
-                    b_piece_values += pieces_values[board[square]];
-                }
-            }
-        }
-    }
-    return w_piece_values - b_piece_values;
-}
-
-int minimax(int depth, int side){
-    if (depth == 0){
-        int value = compute_board_value();
-
-        if (value) printf("\n  value : %d\n", value);
-        //print_board();
-        return value;
-    }
-    
-    moves move_list[1];
-    generate_moves(move_list);
-
-    int best_eval = (side == white) ? INT_MIN : INT_MAX;
-    
-    // loop over candidate moves
-    for (int move_count = 0; move_count < move_list->count; move_count++){
-        int move = move_list->moves[move_count];
-        
-        // save current state
-        int board_copy[128], king_square_copy[2];
-        int side_copy, enpassant_copy, castle_copy;
-        memcpy(board_copy, board, 512);
-        memcpy(king_square_copy, king_square, 8);
-        side_copy = side;
-        enpassant_copy = enpassant;
-        castle_copy = castle;
-
-        // apply move; if illegal, skip
-        if (!make_move(move, all_moves))
-            continue;
-        
-        // recursive search on the new position (side switched in make_move)
-        int eval = minimax(depth - 1, side ^ 1);
-
-        // update best eval depending on who is moving
-        if (side == white)
-            best_eval = (eval > best_eval) ? eval : best_eval;
-        else
-            best_eval = (eval < best_eval) ? eval : best_eval;
-        
-        // undo move: restore board state
-        memcpy(board, board_copy, 512);
-        memcpy(king_square, king_square_copy, 8);
-        side = side_copy;
-        enpassant = enpassant_copy;
-        castle = castle_copy;
-    }
-    
-    return best_eval;
-}
-
-int minimax_driver(){
-    move_stack = create_stack(128);
-
-    push(move_stack, 32);
-
-    printf("\nmovestack : %d\n", peek(move_stack));
-    return 0;
-}
-
-/*
-// main driver
-int main()
-{
-    // parse FEN string
-    parse_fen("3k4/8/8/5r2/4R3/8/8/3K4 b - - 0 1");
-    print_board();
-    print_values();
-
-
-    
-    // run perft driver
-    perft_test(2);
-
-    printf("minimax algorithm gives value : %d \n", side);
-
-    
-    return 0;
-}
-*/
