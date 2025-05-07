@@ -14,6 +14,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <limits.h>
+#include "stack.h"
 
 // FEN dedug positions
 char start_position[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -218,6 +219,9 @@ typedef struct {
     int count;
 } moves;
 
+Stack *move_stack;
+
+
 // print board
 void print_board()
 {
@@ -332,10 +336,10 @@ void parse_fen(char *fen)
                         king_square[black] = square;
                     
                     // set the piece on board
-                    board[square] = char_pieces[*fen];
+                    board[square] = char_pieces[(unsigned char)*fen];
                     
                     // increment FEN pointer
-                    *fen++;
+                    fen++;
                 }
                 
                 // match empty squares
@@ -352,20 +356,20 @@ void parse_fen(char *fen)
                     file += offset;
                     
                     // increment FEN pointer
-                    *fen++;
+                    fen++;
                 }
                 
                 // match end of rank
                 if (*fen == '/')
                     // increment FEN pointer
-                    *fen++;
+                    fen++;
                 
             }
         }
     }
     
     // go to side parsing
-    *fen++;
+    fen++;
     
     // parse side to move
     side = (*fen == 'w') ? white : black;
@@ -386,11 +390,11 @@ void parse_fen(char *fen)
         }
         
         // increment pointer
-        *fen++;
+        fen++;
     }
     
     // got to empassant square
-    *fen++;
+    fen++;
     
     // parse empassant square
     if (*fen != '-')
@@ -605,7 +609,7 @@ void generate_moves(moves *move_list)
                             
                             // two squares ahead pawn move
                             if ((square >= a2 && square <= h2) && !board[square - 32])
-                                add_move(move_list, encode_move(square, square - 32, 0, 0, 1, 0, 0));
+                                add_move(move_list, encode_move(square, (square - 32), 0, 0, 1, 0, 0));
                         }
                     }
                     
@@ -708,7 +712,7 @@ void generate_moves(moves *move_list)
                             
                             // two squares ahead pawn move
                             if ((square >= a7 && square <= h7) && !board[square + 32])
-                                add_move(move_list, encode_move(square, square + 32, 0, 0, 1, 0, 0));
+                                add_move(move_list, encode_move(square, (square + 32), 0, 0, 1, 0, 0));
                         }
                     }
                     
@@ -1051,6 +1055,7 @@ int make_move(int move, int capture_flag)
             // move is not a capture
             return 0;
     }
+    return 0;
 }
 
 // count nodes
@@ -1225,7 +1230,6 @@ int compute_board_value(){
     return w_piece_values - b_piece_values;
 }
 
-
 int minimax(int depth, int side){
     if (depth == 0){
         int value = compute_board_value();
@@ -1277,6 +1281,16 @@ int minimax(int depth, int side){
     return best_eval;
 }
 
+int minimax_driver(){
+    move_stack = create_stack(128);
+
+    push(move_stack, 32);
+
+    printf("\nmovestack : %d\n", peek(move_stack));
+    return 0;
+}
+
+/*
 // main driver
 int main()
 {
@@ -1295,3 +1309,4 @@ int main()
     
     return 0;
 }
+*/
