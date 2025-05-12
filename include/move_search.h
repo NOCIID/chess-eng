@@ -14,8 +14,8 @@ extern long nodes;
 
 // Function prototypes
 int get_time_ms(void);
-void perft_driver(int depth);
-void perft_test(int depth);
+void perft_driver(int depth, int side);
+void perft_test(int depth, int side);
 void print_values(void);
 int compute_board_value(void);
 int minimax(int depth, int side);

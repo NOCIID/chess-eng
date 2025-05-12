@@ -502,7 +502,7 @@ void add_move(moves *move_list, int move)
 
 
 // move generator
-void generate_moves(moves *move_list)
+void generate_moves(moves *move_list, int side)
 {
     // reset move count
     move_list->count = 0;
@@ -871,7 +871,7 @@ void generate_moves(moves *move_list)
 }
 
 // make move
-int make_move(int move, int capture_flag)
+int make_move(int move, int capture_flag, int side)
 {
     // quiet move
     if (capture_flag == all_moves)
@@ -981,7 +981,7 @@ int make_move(int move, int capture_flag)
         // if move is a capture
         if (get_move_capture(move))
             // make capture move
-            make_move(move, all_moves);
+            make_move(move, all_moves, side);
         
         else
             // move is not a capture

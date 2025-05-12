@@ -5,16 +5,16 @@
 int main()
 {
     // parse FEN string
-    parse_fen("3k4/8/8/5r2/4R3/8/8/3K4 b - - 0 1");
+    parse_fen("4k3/8/8/8/R2K4/8/7r/8 b - - 6 6");
     print_board();
     print_values();
 
 
-    
-    // run perft driver
-    perft_test(2);
+    // run perft driverx
+    //perft_test(2);
 
-    printf("minimax algorithm gives value : %d \n", side);
+
+    printf("minimax algorithm gives value : %d \n", minimax(3, side));
 
     
     return 0;

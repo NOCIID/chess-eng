@@ -17,7 +17,7 @@ int get_time_ms()
 }
 
 // perft driver
-void perft_driver(int depth)
+void perft_driver(int depth, int side)
 {
     // escape condition
     if  (!depth)
@@ -31,7 +31,7 @@ void perft_driver(int depth)
     moves move_list[1];
     
     // generate moves
-    generate_moves(move_list);
+    generate_moves(move_list, side);
     
     // loop over the generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
@@ -48,12 +48,12 @@ void perft_driver(int depth)
         memcpy(king_square_copy, king_square,8);
         
         // make only legal moves
-        if (!make_move(move_list->moves[move_count], all_moves))
+        if (!make_move(move_list->moves[move_count], all_moves, side))
             // skip illegal move
             continue;
         
         // recursive call
-        perft_driver(depth - 1);
+        perft_driver(depth - 1, side);
         
         // restore board position
         memcpy(board, board_copy, 512);
@@ -65,7 +65,7 @@ void perft_driver(int depth)
 }
 
 // perft test
-void perft_test(int depth)
+void perft_test(int depth, int side)
 {
     printf("\n    Performance test:\n\n");
     
@@ -76,7 +76,7 @@ void perft_test(int depth)
     moves move_list[1];
     
     // generate moves
-    generate_moves(move_list);
+    generate_moves(move_list, side);
     
     // loop over the generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
@@ -93,7 +93,7 @@ void perft_test(int depth)
         memcpy(king_square_copy, king_square,8);
         
         // make only legal moves
-        if (!make_move(move_list->moves[move_count], all_moves))
+        if (!make_move(move_list->moves[move_count], all_moves, side))
             // skip illegal move
             continue;
         
@@ -101,7 +101,7 @@ void perft_test(int depth)
         long cum_nodes = nodes;
         
         // recursive call
-        perft_driver(depth - 1);
+        perft_driver(depth - 1, side);
         
         // old nodes
         long old_nodes = nodes - cum_nodes;
@@ -154,7 +154,6 @@ void print_values(){
 }
 
 
-
 int compute_board_value(){
     int w_piece_values = 0;
     int b_piece_values = 0;
@@ -181,14 +180,20 @@ int minimax(int depth, int side){
     if (depth == 0){
         int value = compute_board_value();
 
-        if (value) printf("\n  value : %d\n", value);
+        if (value) {
+            printf("\n  value : %d and side : %d\n", value, side);
+            print_board();
+
+        }
+        //printf("\n      side : %d", side);
         //print_board();
         return value;
     }
     
     moves move_list[1];
-    generate_moves(move_list);
+    generate_moves(move_list, side);
 
+    // usually it should be the other way around but since the side gets changed in the make_move we flip it beforehand before it gets flipped (i know it makes no sense)
     int best_eval = (side == white) ? INT_MIN : INT_MAX;
     
     // loop over candidate moves
@@ -205,11 +210,16 @@ int minimax(int depth, int side){
         castle_copy = castle;
 
         // apply move; if illegal, skip
-        if (!make_move(move, all_moves))
-            continue;
+        if (!make_move(move, all_moves, side))
+            {
+                continue;
+            }
+
         
         // recursive search on the new position (side switched in make_move)
-        int eval = minimax(depth - 1, side ^ 1);
+        int eval = minimax(depth - 1, side ^ 1);//(side == white) ? black : white);
+
+        //printf("\n      side : %d", side);
 
         // update best eval depending on who is moving
         if (side == white)

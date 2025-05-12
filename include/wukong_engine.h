@@ -96,21 +96,13 @@ int compute_board_value(void);
 
 // Move generation and manipulation
 void add_move(moves *move_list, int move);
-void generate_moves(moves *move_list);
-int make_move(int move, int capture_flag);
+void generate_moves(moves *move_list, int side);
+int make_move(int move, int capture_flag, int side);
 
 // Attack map function (for debugging)
 int is_square_attacked(int square, int side);
 void print_attacked_squares(int side);
 
-// Perft (performance test) routines
-int get_time_ms(void);
-void perft_driver(int depth);
-void perft_test(int depth);
-
-// Minimax functions
-int minimax(int depth, int side);
-int minimax_driver(void);
 
 // --- Global Variables ---
 // (Declare these as extern since they are defined in wukong_engine.c)
